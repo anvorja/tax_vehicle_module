@@ -30,7 +30,8 @@ wheels/
 .vscode/
 *.swp
 *.swo
-
+.venv
+.venv/
 # Logs
 *.log
 
