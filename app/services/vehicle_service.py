@@ -1,5 +1,5 @@
-from datetime import date, timedelta
-from typing import Optional, Tuple
+from datetime import date, timedelta, datetime
+from typing import Optional, Tuple, Dict
 
 from sqlalchemy.orm import Session
 
@@ -241,3 +241,67 @@ class VehicleService:
             }
             for payment in payments
         ]
+
+    @staticmethod
+    def get_vehicle_payment_history(
+            db: Session,
+            plate: str,
+            document_type: str,
+            document_number: str
+    ) -> Dict:
+        """Obtiene el historial completo de pagos de un vehículo"""
+        vehicle = (
+            db.query(Vehicle)
+            .join(User)
+            .filter(
+                Vehicle.plate == plate.upper(),
+                User.document_type_id == document_type,
+                User.document_number == document_number
+            )
+            .first()
+        )
+
+        if not vehicle:
+            raise ValueError("Vehículo no encontrado")
+
+        # Obtener el último pago completado
+        ultimo_pago = (
+            db.query(Payment)
+            .filter(
+                Payment.vehicle_id == vehicle.id,
+                Payment.status == PaymentStatus.COMPLETED
+            )
+            .order_by(Payment.payment_date.desc())
+            .first()
+        )
+
+        # Obtener historial de pagos
+        pagos = (
+            db.query(Payment)
+            .filter(Payment.vehicle_id == vehicle.id)
+            .order_by(Payment.tax_year.desc(), Payment.payment_date.desc())
+            .all()
+        )
+
+        return {
+            "vehicle_info": {
+                "periodo_certificacion": datetime.now().year,
+                "fecha_consulta": datetime.now().strftime("%Y-%m-%d"),
+                "placa": vehicle.plate,
+                "marca": vehicle.brand
+            },
+            "ultimo_pago": {
+                "periodo_pagado": ultimo_pago.tax_year if ultimo_pago else None,
+                "fecha_pago": ultimo_pago.payment_date.strftime("%Y-%m-%d") if ultimo_pago else None,
+                "valor_pagado": ultimo_pago.amount if ultimo_pago else 0.0
+            },
+            "historial_pagos": [
+                {
+                    "año": pago.tax_year,
+                    "concepto": "Impuesto Vehicular",
+                    "valor": pago.amount,
+                    "estado": "Pagado" if pago.status == PaymentStatus.COMPLETED else "Pendiente"
+                }
+                for pago in pagos
+            ]
+        }

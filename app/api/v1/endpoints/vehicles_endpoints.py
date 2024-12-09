@@ -11,13 +11,14 @@ from app.models.vehicle import Vehicle, VehicleType, TaxStatus
 from app.schemas.vehicle_schema import VehicleCreate, VehicleResponse, VehicleTaxResponse, ProcessDetailResponse, \
     EmailRequestSchema, AccountStatementResponse
 from app.services.payment_service import PaymentService
+from app.services.pdf_service import PDFService
 from app.services.vehicle_service import VehicleService
 from app.schemas.vehicle_schema import VehicleConsultResponse
 from app.schemas.payment_schema import (
     PSEPaymentRequest,
     PSERedirectResponse,
     PSEBankResponse,
-    PaymentCompletionResponse
+    PaymentCompletionResponse, PaymentStatusResponse, VehiclePaymentHistoryResponse
 )
 
 router = APIRouter()
@@ -340,17 +341,27 @@ def complete_payment(
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.get("/payment-status/{transaction_id}", response_model=PaymentCompletionResponse)
+@router.get("/payment-status/{transaction_id}", response_model=PaymentStatusResponse)
 def check_payment_status(
         transaction_id: str,
         db: Session = Depends(get_db)
 ):
     """Verifica el estado de un pago"""
     try:
-        status = PaymentService.get_payment_status(
-            db=db,
-            transaction_id=transaction_id
-        )
-        return status
-    except Exception as e:
+        return PaymentService.get_payment_status(db, transaction_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/history/{plate}", response_model=VehiclePaymentHistoryResponse)
+def get_vehicle_history(
+        plate: str,
+        document_type: str,
+        document_number: str,
+        db: Session = Depends(get_db)
+):
+    """Obtiene el historial completo de un vehículo y sus pagos"""
+    try:
+        return VehicleService.get_vehicle_payment_history(db, plate, document_type, document_number)
+    except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

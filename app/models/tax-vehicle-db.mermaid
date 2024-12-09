@@ -1,0 +1,157 @@
+erDiagram
+    User ||--o{ Vehicle : owns
+    User ||--o{ PaymentStatusLog : logs
+    User }|--|| DocumentType : has
+    Vehicle ||--o{ Payment : has
+    TaxPeriod ||--o{ Payment : contains
+    TaxPeriod ||--o{ TaxRate : has
+    Payment ||--o{ PaymentStatusLog : logs
+    Payment ||--o| Payment : corrects
+
+    User {
+        int id PK
+        string email
+        string full_name
+        string hashed_password
+        boolean is_active
+        boolean is_superadmin
+        int document_type_id FK
+        string document_number
+        string phone
+        string address
+        string city
+        string notification_email
+        datetime last_login
+        int failed_login_attempts
+        string password_reset_token
+        datetime password_reset_expires
+        datetime created_at
+        datetime updated_at
+    }
+
+    DocumentType {
+        int id PK
+        string code
+        string name
+        boolean is_active
+        string description
+        datetime created_at
+        datetime updated_at
+    }
+
+    Vehicle {
+        int id PK
+        string plate
+        string brand
+        string model
+        int year
+        enum vehicle_type
+        float commercial_value
+        boolean is_electric
+        boolean is_hybrid
+        date registration_date
+        string city
+        int owner_id FK
+        float engine_displacement
+        float tax_rate
+        int tax_year
+        string discount_type
+        date discount_expiry
+        boolean is_new
+        string import_declaration
+        datetime last_payment_date
+        datetime next_payment_due
+        boolean has_pending_payments
+        enum current_tax_status
+        float current_appraisal
+        int appraisal_year
+        string line
+        float previous_appraisal
+        datetime last_tax_calculation
+        boolean requires_traffic_light_fee
+        datetime created_at
+        datetime updated_at
+    }
+
+    Payment {
+        int id PK
+        int vehicle_id FK
+        float amount
+        datetime payment_date
+        datetime due_date
+        enum status
+        string payment_method
+        string transaction_id
+        int tax_year
+        float late_fee
+        boolean has_traffic_lights_fee
+        float penalties
+        int tax_period_id FK
+        string invoice_number
+        int correction_of_payment_id FK
+        string bank
+        enum process_status
+        string process_message
+        string bank_reference
+        datetime paid_at
+        float late_payment_fee
+        float correction_fee
+        string pse_transaction_id
+        boolean email_notification_sent
+        datetime created_at
+        datetime updated_at
+    }
+
+    PaymentStatusLog {
+        int id PK
+        int payment_id FK
+        enum status
+        datetime timestamp
+        string details
+        int user_id FK
+        string change_reason
+        datetime created_at
+        datetime updated_at
+    }
+
+    TaxPeriod {
+        int id PK
+        int year
+        date start_date
+        date end_date
+        date due_date
+        float traffic_light_fee
+        int min_penalty_uvt
+        float uvt_value
+        boolean is_active
+        date extension_date
+        string observations
+        datetime created_at
+        datetime updated_at
+    }
+
+    TaxRate {
+        int id PK
+        enum vehicle_type
+        float min_value
+        float max_value
+        float rate
+        int year
+        boolean is_active
+        int tax_period_id FK
+        float additional_rate
+        datetime created_at
+        datetime updated_at
+    }
+
+    SystemConfig {
+        int id PK
+        string key
+        string value
+        string description
+        boolean is_active
+        datetime valid_from
+        datetime valid_until
+        datetime created_at
+        datetime updated_at
+    }

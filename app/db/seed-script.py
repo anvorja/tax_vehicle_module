@@ -11,6 +11,7 @@ from app.core.security import get_password_hash
 from datetime import date, datetime, timedelta
 import logging
 from app.db.session import SessionLocal
+import random
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -41,10 +42,10 @@ def create_users(session: Session) -> None:
         logger.info("Users already exist")
         return
 
-    # Obtener el tipo de documento CC
-    doc_type = session.query(DocumentType).filter(DocumentType.code == "CC").first()
-    if not doc_type:
-        logger.error("Document type CC not found")
+    # Obtener los tipos de documento
+    doc_types = session.query(DocumentType).all()
+    if not doc_types:
+        logger.error("Document types not found")
         return
 
     # Crear superadmin primero
@@ -54,14 +55,14 @@ def create_users(session: Session) -> None:
         hashed_password=get_password_hash("admin123"),
         is_active=True,
         is_superadmin=True,
-        document_type_id=doc_type.id,
+        document_type_id=doc_types[0].id,  # Asumiendo que CC es el primer tipo de documento
         document_number="1234567890",
         city="Bogotá",
         notification_email="admin@example.com"
     )
     session.add(superadmin)
 
-    # Crear 10 usuarios regulares
+    # Crear 15 usuarios regulares
     users = [
         {
             "email": f"user{i}@example.com",
@@ -69,13 +70,13 @@ def create_users(session: Session) -> None:
             "hashed_password": get_password_hash(f"user{i}pass"),
             "is_active": True,
             "is_superadmin": False,
-            "document_type_id": doc_type.id,
+            "document_type_id": random.choice(doc_types).id,
             "document_number": f"10{i:08d}",
-            "city": "Bogotá",
+            "city": random.choice(["Bogotá", "Cali", "Medellín", "Buga", "Pasto"]),
             "notification_email": f"user{i}@example.com",
             "phone": f"310{i:07d}"
         }
-        for i in range(1, 11)
+        for i in range(1, 16)
     ]
 
     for user_data in users:
@@ -180,15 +181,25 @@ def create_sample_vehicles(session: Session) -> None:
 
     # Lista de marcas y modelos para variedad
     vehicle_types = [
-        ("Toyota", ["Corolla", "Camry", "RAV4", "Prado"]),
-        ("Chevrolet", ["Spark", "Cruze", "Captiva", "Tracker"]),
-        ("Mazda", ["3", "CX-30", "CX-5", "6"]),
-        ("Renault", ["Logan", "Duster", "Sandero", "Koleos"]),
-        ("Tesla", ["Model 3", "Model Y", "Model S", "Model X"])
+        ("Toyota", ["Corolla", "Camry", "RAV4", "Prado", "Yaris", "Hilux"]),
+        ("Chevrolet", ["Spark", "Cruze", "Captiva", "Tracker", "Onix", "Sail"]),
+        ("Mazda", ["3", "CX-30", "CX-5", "6", "CX-9", "MX-5"]),
+        ("Renault", ["Logan", "Duster", "Sandero", "Koleos", "Clio", "Megane"]),
+        ("Tesla", ["Model 3", "Model Y", "Model S", "Model X", "Cybertruck"]),
+        ("Ford", ["Fiesta", "Focus", "Mustang", "Escape", "Explorer", "F-150"]),
+        ("Honda", ["Civic", "Accord", "CR-V", "Fit", "HR-V", "Odyssey"]),
+        ("Nissan", ["Versa", "Sentra", "Altima", "Rogue", "Pathfinder", "Frontier"]),
+        ("BMW", ["3 Series", "5 Series", "X3", "X5", "i3", "i8"]),
+        ("Mercedes-Benz", ["A-Class", "C-Class", "E-Class", "GLE", "GLC", "S-Class"]),
+        ("Yamaha", ["YZF-R3", "MT-03", "XSR155", "FZ-S", "FZ25", "FZ-X"]),
+        ("Honda", ["CBR150R", "CBR250R", "CBR650R", "CBR1000RR", "CB500F", "CB650F"]),
+        ("Suzuki", ["GSX-R150", "GSX-R600", "GSX-R750", "GSX-R1000", "GSX-S1000", "GSX-S750"]),
+        ("Kawasaki", ["Ninja 300", "Ninja 400", "Ninja 650", "Ninja ZX-6R", "Ninja ZX-10R", "Ninja H2"]),
+        ("Ducati", ["Monster 797", "Monster 821", "Monster 1200", "Panigale V2", "Panigale V4", "Streetfighter V4"])
     ]
 
     vehicles = []
-    for i in range(10):
+    for i in range(45):
         # Seleccionar marca y modelo aleatorios
         brand_idx = i % len(vehicle_types)
         brand, models = vehicle_types[brand_idx]
@@ -204,19 +215,22 @@ def create_sample_vehicles(session: Session) -> None:
         is_electric = brand == "Tesla"
 
         # Valor base entre 40 y 150 millones
-        base_value = 40_000_000 + (i * 12_000_000)
+        base_value = 40_000_000 + (i * 3_000_000)
+
+        # Determinar tipo de vehículo
+        vehicle_type = random.choice([VehicleType.PARTICULAR, VehicleType.PUBLIC, VehicleType.MOTORCYCLE])
 
         vehicle_data = {
             "plate": plate,
             "brand": brand,
             "model": model,
-            "year": 2020 + (i % 5),  # Años entre 2020 y 2024
-            "vehicle_type": VehicleType.PARTICULAR,
+            "year": random.randint(1995, 2024),  # Años entre 1995 y 2024
+            "vehicle_type": vehicle_type,
             "commercial_value": base_value,
             "is_electric": is_electric,
             "is_hybrid": not is_electric and i % 3 == 0,  # Algunos híbridos
-            "registration_date": date(2020 + (i % 5), 1 + (i % 12), 1 + (i % 28)),
-            "city": "Bogotá",
+            "registration_date": date(random.randint(1995, 2024), random.randint(1, 12), random.randint(1, 28)),
+            "city": random.choice(["Bogotá", "Cali", "Medellín", "Buga", "Pasto"]),
             "owner_id": user.id,
             "current_appraisal": base_value * 0.9,  # 90% del valor comercial
             "appraisal_year": 2024,

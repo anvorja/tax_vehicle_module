@@ -34,6 +34,7 @@ wheels/
 .venv/
 # Logs
 *.log
-
+.venv.*
 # Database
 *.sqlite3
+versions

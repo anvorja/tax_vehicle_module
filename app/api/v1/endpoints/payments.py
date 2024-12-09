@@ -1,15 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from typing import List
 from app.api.deps import get_db
 from app.services.payment_service import PaymentService
 from app.services.vehicle_service import VehicleService
 from app.schemas.payment_schema import (
-    PaymentCreate,
     PaymentResponse,
     PSEPaymentRequest,
     PSERedirectResponse,
-    PaymentHistoryResponse
 )
 
 router = APIRouter()
@@ -26,13 +23,17 @@ def initiate_payment(
         raise HTTPException(status_code=404, detail=error)
 
     try:
-        payment = PaymentService.initiate_payment(
+        # Calcular monto total
+        total_amount = details["tax_details"]["base_tax"] + details["tax_details"]["traffic_light_fee"]
+
+        payment_info = PaymentService.initiate_pse_payment(
             db=db,
             vehicle_id=details["vehicle_details"]["id"],
-            tax_amount=details["tax_details"]["base_tax"],
-            traffic_light_fee=details["tax_details"]["traffic_light_fee"]
+            amount=total_amount,
+            bank_code="DEFAULT",  # Este código se actualizará en process-pse
+            email="pending"  # Este email se actualizará en process-pse
         )
-        return payment
+        return payment_info
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

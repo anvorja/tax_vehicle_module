@@ -1,13 +1,13 @@
 from datetime import datetime
-from typing import Optional, Dict
 from sqlalchemy.orm import Session
 
-from app.models import PaymentStatusLog
+from app.models import PaymentStatusLog, TaxPeriod
 from app.models.payment import Payment, PaymentStatus, PaymentProcessStatus
-from app.models.vehicle import Vehicle
+from app.models.vehicle import Vehicle, TaxStatus
 
 
 class PaymentService:
+
     @staticmethod
     def initiate_pse_payment(
             db: Session,
@@ -18,8 +18,54 @@ class PaymentService:
     ) -> dict:
         """Inicia un pago PSE"""
         try:
-            reference_number = f"PSE-{datetime.now().strftime('%Y%m%d%H%M%S')}-{vehicle_id}"
+            # Obtener el período fiscal activo
+            tax_period = db.query(TaxPeriod).filter(TaxPeriod.is_active == True).first()
+            if not tax_period:
+                raise ValueError("No hay período fiscal activo")
 
+            # Verificar si existe un pago COMPLETADO
+            completed_payment = (
+                db.query(Payment)
+                .filter(
+                    Payment.vehicle_id == vehicle_id,
+                    Payment.tax_period_id == tax_period.id,
+                    Payment.status == PaymentStatus.COMPLETED
+                )
+                .first()
+            )
+
+            if completed_payment:
+                return {
+                    "message": "Ya existe un pago completado para este vehículo en el período actual",
+                    "transaction_id": completed_payment.pse_transaction_id,
+                    "status": PaymentStatus.COMPLETED.value,
+                    "payment_date": completed_payment.paid_at.strftime("%Y-%m-%d %H:%M:%S"),
+                    "amount": completed_payment.amount,
+                    "reference_number": completed_payment.bank_reference
+                }
+
+            # Verificar si existe un pago EN CURSO
+            pending_payment = (
+                db.query(Payment)
+                .filter(
+                    Payment.vehicle_id == vehicle_id,
+                    Payment.tax_period_id == tax_period.id,
+                    Payment.status == PaymentStatus.PENDING,
+                    Payment.process_status == PaymentProcessStatus.PENDING_PSE
+                )
+                .first()
+            )
+
+            if pending_payment:
+                return {
+                    "message": "Ya existe un pago en curso para este vehículo",
+                    "transaction_id": pending_payment.pse_transaction_id,
+                    "status": pending_payment.process_status.value,
+                    "amount": pending_payment.amount,
+                    "reference_number": pending_payment.bank_reference,
+                }
+
+            reference_number = f"PSE-{datetime.now().strftime('%Y%m%d%H%M%S')}-{vehicle_id}"
             payment = Payment(
                 vehicle_id=vehicle_id,
                 amount=amount,
@@ -29,10 +75,11 @@ class PaymentService:
                 process_status=PaymentProcessStatus.PENDING_PSE,
                 status=PaymentStatus.PENDING,
                 payment_date=datetime.now(),
-                due_date=datetime.now(),
+                due_date=tax_period.due_date,
                 pse_transaction_id=reference_number,
                 invoice_number=f"INV-{reference_number}",
-                bank_reference=reference_number
+                bank_reference=reference_number,
+                tax_period_id=tax_period.id
             )
 
             # Crear registro de estado
@@ -50,7 +97,6 @@ class PaymentService:
 
             return {
                 "transaction_id": reference_number,
-                "bank_redirect_url": f"https://sandbox.pse.com.co/checkout?ref={reference_number}&bank={bank_code}",
                 "amount": amount,
                 "status": payment.process_status.value,
                 "reference_number": reference_number
@@ -74,6 +120,17 @@ class PaymentService:
         if not payment:
             raise ValueError("Transacción no encontrada")
 
+        # Verificar si el pago ya fue completado
+        if payment.status == PaymentStatus.COMPLETED:
+            return {
+                "message": "Este pago ya fue completado anteriormente",
+                "transaction_id": transaction_id,
+                "status": payment.status.value,
+                "payment_date": payment.paid_at.strftime("%Y-%m-%d %H:%M:%S"),
+                "amount": payment.amount,
+                "reference_number": payment.bank_reference
+            }
+
         try:
             if status == "SUCCESS":
                 payment.process_status = PaymentProcessStatus.COMPLETED
@@ -84,7 +141,7 @@ class PaymentService:
                 vehicle = db.query(Vehicle).filter(Vehicle.id == payment.vehicle_id).first()
                 vehicle.last_payment_date = datetime.now()
                 vehicle.has_pending_payments = False
-                vehicle.current_tax_status = "PAID"
+                vehicle.current_tax_status = TaxStatus.UP_TO_DATE
 
                 log_details = "Pago completado exitosamente"
             else:
@@ -129,13 +186,24 @@ class PaymentService:
         if not payment:
             raise ValueError("Transacción no encontrada")
 
-        return {
+        # Construir la respuesta base
+        response = {
             "transaction_id": transaction_id,
             "status": payment.status.value,
-            "payment_date": payment.paid_at.strftime("%Y-%m-%d %H:%M:%S") if payment.paid_at else None,
             "amount": payment.amount,
-            "reference_number": payment.bank_reference
+            "reference_number": payment.bank_reference,
+            "payment_date": payment.paid_at.strftime("%Y-%m-%d %H:%M:%S") if payment.paid_at else None
         }
+
+        # Agregar mensaje según el estado
+        if payment.status == PaymentStatus.COMPLETED:
+            response["message"] = "Pago completado"
+        elif payment.status == PaymentStatus.PENDING:
+            response["message"] = "Pago en curso"
+        else:
+            response["message"] = "Estado de pago desconocido"
+
+        return response
 
     @staticmethod
     def get_payment_history(

@@ -88,3 +88,65 @@ class PDFService:
         pdf.output(filepath)
 
         return filepath
+
+    # from datetime import datetime
+    # from typing import Dict, List
+    # from sqlalchemy.orm import Session
+    # from app.models import Vehicle, Payment, User
+    #
+    # class PDFService:
+    #     @staticmethod
+    #     def get_account_statement_data(
+    #             db: Session,
+    #             plate: str,
+    #             document_type: str,
+    #             document_number: str
+    #     ) -> Dict:
+    #         """
+    #         Obtiene los datos necesarios para que el frontend genere el PDF
+    #         """
+    #         # Obtener vehículo con su último pago
+    #         vehicle = (
+    #             db.query(Vehicle)
+    #             .join(User)
+    #             .filter(
+    #                 Vehicle.plate == plate,
+    #                 User.document_type_id == document_type,
+    #                 User.document_number == document_number
+    #             )
+    #             .first()
+    #         )
+    #
+    #         if not vehicle:
+    #             raise ValueError("Vehículo no encontrado")
+    #
+    #         # Obtener último pago
+    #         last_payment = (
+    #             db.query(Payment)
+    #             .filter(Payment.vehicle_id == vehicle.id)
+    #             .order_by(Payment.payment_date.desc())
+    #             .first()
+    #         )
+    #
+    #         # Estructura simple con solo los datos necesarios
+    #         return {
+    #             "vehicle_info": {
+    #                 "brand": vehicle.brand,
+    #                 "plate": vehicle.plate,
+    #                 "registration_year": vehicle.year,
+    #             },
+    #             "consultation_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    #             "last_payment": {
+    #                 "year": last_payment.tax_year if last_payment else None,
+    #                 "date": last_payment.payment_date.strftime("%Y-%m-%d") if last_payment else None,
+    #                 "amount": last_payment.amount if last_payment else None
+    #             },
+    #             "payment_history": [
+    #                 {
+    #                     "year": payment.tax_year,
+    #                     "payment_date": payment.payment_date.strftime("%Y-%m-%d"),
+    #                     "amount": payment.amount
+    #                 }
+    #                 for payment in vehicle.payments
+    #             ]
+    #         }
