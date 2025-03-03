@@ -104,7 +104,7 @@ ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=20
 FRONTEND_URL=http://localhost:5173
 
-```
+
 ### Database Migration Setup
 1. Handle the Alembic configuration:
 ```bash
